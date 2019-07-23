@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"sync/atomic"
 )
 
 const (
@@ -22,6 +21,9 @@ const (
 )
 
 var (
+	// DefaultPool default bytes pool
+	DefaultPool = GetPool()
+
 	poolPool = sync.Pool{
 		New: func() interface{} {
 			return new(Pool)
@@ -39,14 +41,21 @@ func PutPool(pool *Pool) {
 	poolPool.Put(pool)
 }
 
-// Pool bytes pool
+// Get acquire a bytes slice with a capacity of at least size from default pool.
+func Get(size int) []byte {
+	return DefaultPool.Get(size)
+}
+
+// Put release a bytes slice.
+func Put(bytes []byte) {
+	DefaultPool.Put(bytes)
+}
+
+// Pool represents bytes pool
 type Pool struct {
 	pools       [IndexLength]*sync.Pool
 	capacities  [IndexLength]int
 	newPoolMutx sync.Mutex
-
-	mallocedSize   uint64
-	mallocedNumber uint64
 }
 
 func (pool *Pool) getCapacity(idx int) int {
@@ -98,9 +107,6 @@ func (pool *Pool) getPool(idx int) *sync.Pool {
 			capacity := pool.getCapacity(idx)
 			p = &sync.Pool{
 				New: func() interface{} {
-					atomic.AddUint64(&pool.mallocedNumber, 1)
-					atomic.AddUint64(&pool.mallocedSize, uint64(capacity))
-
 					return make([]byte, 0, capacity)
 				},
 			}
@@ -142,20 +148,4 @@ func (pool *Pool) Put(bytes []byte) {
 	p := pool.getPool(idx)
 	bytes = bytes[:0]
 	p.Put(bytes)
-}
-
-// MallocedNumber  return the number allocated by this pool.
-func (pool *Pool) MallocedNumber() uint64 {
-	return atomic.LoadUint64(&pool.mallocedNumber)
-}
-
-// MallocedSize  return the size allocated by this pool.
-func (pool *Pool) MallocedSize() uint64 {
-	return atomic.LoadUint64(&pool.mallocedSize)
-}
-
-// Reset reset pool
-func (pool *Pool) Reset() {
-	atomic.StoreUint64(&pool.mallocedNumber, 0)
-	atomic.StoreUint64(&pool.mallocedSize, 0)
 }
