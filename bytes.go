@@ -26,30 +26,14 @@ var (
 
 	// EmptyBytes represents empty bytes
 	EmptyBytes = make([]byte, 0)
-
-	poolPool = sync.Pool{
-		New: func() interface{} {
-			return new(Pool)
-		},
-	}
 )
-
-// GetPool acquire a bytes pool
-func GetPool() *Pool {
-	return poolPool.Get().(*Pool)
-}
-
-// PutPool release a bytes pool
-func PutPool(pool *Pool) {
-	poolPool.Put(pool)
-}
 
 // Get acquire a bytes slice with a capacity of at least length from default pool.
 func Get(length int) []byte {
 	return DefaultPool.Get(length)
 }
 
-// Put release a bytes slice.
+// Put reset a bytes slice and put it to default pool.
 func Put(bytes []byte) {
 	DefaultPool.Put(bytes)
 }
@@ -139,7 +123,7 @@ func (pool *Pool) Get(length int) []byte {
 	return bytes[:length]
 }
 
-// Put release a bytes slice.
+// Put reset and release a bytes slice.
 func (pool *Pool) Put(bytes []byte) {
 	capacity := cap(bytes)
 	idx, found := pool.findIndex(capacity)

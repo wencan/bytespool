@@ -26,7 +26,7 @@ type BytesPool interface {
 	Put(bytes []byte)
 }
 
-// GetBuffer acquire a buffer base on default pool.
+// GetBuffer acquire a buffer at default bytes pool.
 func GetBuffer() *Buffer {
 	return bufferPool.Get().(*Buffer)
 }
@@ -46,8 +46,8 @@ type Buffer struct {
 	pool BytesPool
 }
 
-// SetAllocator change bytes pool.
-func (buffer *Buffer) SetAllocator(pool BytesPool) {
+// SetBytesPool change bytes pool.
+func (buffer *Buffer) SetBytesPool(pool BytesPool) {
 	buffer.pool = pool
 }
 
@@ -174,7 +174,7 @@ func (buffer *Buffer) Grow(n int) {
 	buffer.grow(n)
 }
 
-// Reset release bytes and set pool to defaultallocator.
+// Reset release bytes and reset the buffer status.
 func (buffer *Buffer) Reset() {
 	if buffer.bytes != nil {
 		if buffer.pool == nil {

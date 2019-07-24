@@ -42,7 +42,7 @@ func TestBatchMalloc(t *testing.T) {
 		if length < 1024 {
 			length++
 		} else {
-			length += rand.Intn(300) + 10
+			length += rand.Intn(1024) + 1024
 		}
 	}
 	PutPool(pool)
