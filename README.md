@@ -2,7 +2,7 @@
 
 ## feature
 
-- reusd byte slice based on the range of its length.
+- reuse byte slice based on the range of its length.
 
 - reclaim the original byte slice when the buffer grows.
 
