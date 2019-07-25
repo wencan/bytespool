@@ -293,3 +293,25 @@ func TestBufferWriteTo(t *testing.T) {
 		return
 	}
 }
+
+func TestBufferWriteString(t *testing.T) {
+	buffer := GetBuffer()
+	defer PutBuffer(buffer)
+
+	str := time.Now().String()
+	nWrote, err := buffer.WriteString(str)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	if nWrote != len(str) {
+		t.Fatalf("wrote length error, want: %d, have: %d", len(str), nWrote)
+		return
+	}
+
+	haveStr := string(buffer.Bytes())
+	if haveStr != str {
+		t.Fatalf("wrote str error, want: %s, have: %s", str, haveStr)
+		return
+	}
+}

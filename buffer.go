@@ -146,6 +146,24 @@ func (buffer *Buffer) WriteTo(w io.Writer) (int64, error) {
 	return int64(nWrote), err
 }
 
+// WriteString appends the contents of str to the buffer, growing the buffer as needed.
+// The return first value is the length of str.
+func (buffer *Buffer) WriteString(str string) (int, error) {
+	if len(str) == 0 {
+		return 0, nil
+	}
+
+	if buffer.writeableLen() < len(str) {
+		buffer.grow(len(str))
+	}
+
+	buff := buffer.bytes[len(buffer.bytes):cap(buffer.bytes)]
+	nWrote := copy(buff, str)
+	buffer.bytes = buffer.bytes[:len(buffer.bytes)+nWrote]
+
+	return len(str), nil
+}
+
 func (buffer *Buffer) grow(n int) {
 	if buffer.pool == nil {
 		buffer.pool = defaultBytesPool
