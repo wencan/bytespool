@@ -9,8 +9,17 @@ import (
 	"time"
 )
 
+type sampleAllocator struct{}
+
+func (sampleAllocator) Get(size int) []byte {
+	return make([]byte, size)
+}
+
+func (sampleAllocator) Put([]byte) {}
+
 func TestBufferBasic(t *testing.T) {
 	buffer := GetBuffer()
+	buffer.SetBytesPool(new(sampleAllocator))
 	defer PutBuffer(buffer)
 
 	// make random data
@@ -63,6 +72,7 @@ func TestBufferBasic(t *testing.T) {
 
 func TestBufferGrow(t *testing.T) {
 	buffer := GetBuffer()
+	buffer.SetBytesPool(new(sampleAllocator))
 	defer PutBuffer(buffer)
 
 	rand.Seed(time.Now().Unix())
@@ -114,6 +124,7 @@ func TestBufferGrow(t *testing.T) {
 
 func TestBufferManyWrite(t *testing.T) {
 	buffer := GetBuffer()
+	buffer.SetBytesPool(new(sampleAllocator))
 	defer PutBuffer(buffer)
 
 	var length int
@@ -173,6 +184,7 @@ func TestBufferManyRead(t *testing.T) {
 	sum1 := md5.Sum(buff)
 
 	buffer := GetBuffer()
+	buffer.SetBytesPool(new(sampleAllocator))
 	defer PutBuffer(buffer)
 
 	// write all data
@@ -233,6 +245,7 @@ func TestBufferReadFrom(t *testing.T) {
 	reader := bytes.NewReader(buff)
 
 	buffer := GetBuffer()
+	buffer.SetBytesPool(new(sampleAllocator))
 	defer PutBuffer(buffer)
 	nRead, err := buffer.ReadFrom(reader)
 	if err != nil {
@@ -265,6 +278,7 @@ func TestBufferWriteTo(t *testing.T) {
 		panic(err)
 	}
 	buffer := GetBuffer()
+	buffer.SetBytesPool(new(sampleAllocator))
 	defer PutBuffer(buffer)
 	_, err = buffer.Write(buff)
 	if err != nil {
@@ -296,6 +310,7 @@ func TestBufferWriteTo(t *testing.T) {
 
 func TestBufferWriteString(t *testing.T) {
 	buffer := GetBuffer()
+	buffer.SetBytesPool(new(sampleAllocator))
 	defer PutBuffer(buffer)
 
 	str := time.Now().String()
