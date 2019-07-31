@@ -6,6 +6,24 @@
 
 - reclaim the original byte slice when the buffer grows.
 
+## benchmark
+
+```
+ go test github.com/wencan/go-benchmark/... -bench=. -benchmem
+```
+```
+BenchmarkGenericBuf-16                         	 2000000	       735 ns/op	    2576 B/op	       4 allocs/op
+BenchmarkGenericStackBuf-16                    	 2000000	       768 ns/op	    2576 B/op	       4 allocs/op
+BenchmarkAllocBuf-16                           	 2000000	       773 ns/op	    2576 B/op	       4 allocs/op
+BenchmarkSyncPoolBuf-16                        	100000000	        15.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBpoolPoolBuf-16                       	 2000000	       814 ns/op	       0 B/op	       0 allocs/op
+BenchmarkByteBufferPoolBuf-16                  	100000000	        28.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEasyJsonBuffer-16                     	10000000	       180 ns/op	     609 B/op	       4 allocs/op
+BenchmarkEasyJsonBuffer_OptimizedConfig-16     	50000000	        29.5 ns/op	      32 B/op	       1 allocs/op
+BenchmarkBytesPoolBuffer-16                    	100000000	        15.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBytesPoolBuffer_OptimizedConfig-16    	100000000	        15.5 ns/op	       0 B/op	       0 allocs/op
+```
+
 ## usage
 
 ### bytes
