@@ -12,6 +12,9 @@ var (
 	// DefaultBufferReadBuffLength is the default value of Buffer.ReadBuffLength.
 	DefaultBufferReadBuffLength = 512
 
+	// DefaultBufferReserveLength is the default value of Buffer..
+	DefaultBufferReserveLength = 1024
+
 	// BufferPool is the pool of Buffer instance.
 	BufferPool Pool = &sync.Pool{
 		New: func() interface{} {
@@ -50,6 +53,11 @@ type Buffer struct {
 	// ReadBuffLength is a buff length of the Buffer.ReadFrom.
 	// default value is BufferDefaultReadBuffLength.
 	ReadBuffLength int
+
+	// ReserveLength represents the buffer will reserve the bytes
+	// if the capacity of the bytes is equal to less than this value.
+	// default is DefaultBufferReserveLength.
+	ReserveLength int
 
 	bytes []byte
 
@@ -210,8 +218,15 @@ func (buffer *Buffer) Grow(n int) {
 // Reset release bytes and reset the buffer status.
 func (buffer *Buffer) Reset() {
 	if buffer.bytes != nil {
-		buffer.BytesPool.Put(buffer.bytes)
-		buffer.bytes = nil
+		if buffer.ReserveLength == 0 {
+			buffer.ReserveLength = DefaultBufferReserveLength
+		}
+		if cap(buffer.bytes) > buffer.ReserveLength {
+			buffer.BytesPool.Put(buffer.bytes)
+			buffer.bytes = nil
+		} else {
+			buffer.bytes = buffer.bytes[:0]
+		}
 	}
 
 	buffer.BytesPool = nil
@@ -219,4 +234,5 @@ func (buffer *Buffer) Reset() {
 
 	buffer.MinGrowLength = 0
 	buffer.ReadBuffLength = 0
+	buffer.ReserveLength = 0
 }
