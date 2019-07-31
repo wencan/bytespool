@@ -10,9 +10,9 @@
 
 ### bytes
 ```go
-bytes := bytespool.Get(100)
+bytes := bytespool.GetBytes(100)
 fmt.Printf("len: %d, cap: %d", len(bytes), cap(bytes))
-bytespool.Put(bytes)
+bytespool.PutBytes(bytes)
 ```
 output:
 ```
@@ -32,8 +32,8 @@ _, err = buffer.Write([]byte{4, 5, 6, 7, 8, 9})
 fmt.Printf("len: %d, cap: %d\n", buffer.Len(), buffer.Cap())
 
 // read
-buff := bytespool.Get(10)
-defer bytespool.Put(buff)
+buff := bytespool.GetBytes(10)
+defer bytespool.PutBytes(buff)
 nRead, err := buffer.Read(buff)
 buff = buff[:nRead]
 
