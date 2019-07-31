@@ -21,31 +21,63 @@ const (
 )
 
 var (
-	// DefaultPool default bytes pool
-	DefaultPool = GetPool()
+	// DefaultBytesPool is the default instance of BytesPool.
+	DefaultBytesPool = GetBytesPool()
 
 	// EmptyBytes represents empty bytes
 	EmptyBytes = make([]byte, 0)
+
+	// BytesPoolPool is a pool for BytesPool instance.
+	BytesPoolPool Pool = &sync.Pool{
+		New: func() interface{} { return new(BytesPool) },
+	}
+
+	// DefaultSizedBytesPoolFactory is a default factory for producing SizedBytesPool instance.
+	DefaultSizedBytesPoolFactory = func(size int) Pool {
+		return &sync.Pool{
+			New: func() interface{} {
+				return make([]byte, 0, size)
+			},
+		}
+	}
 )
 
-// Get acquire a bytes slice with a capacity of at least length from default pool.
-func Get(length int) []byte {
-	return DefaultPool.Get(length)
+// GetBytesPool acquire a bytes pool
+func GetBytesPool() *BytesPool {
+	return BytesPoolPool.Get().(*BytesPool)
 }
 
-// Put reset a bytes slice and put it to default pool.
-func Put(bytes []byte) {
-	DefaultPool.Put(bytes)
+// PutBytesPool reset and release a bytes pool
+func PutBytesPool(pool *BytesPool) {
+	pool.Reset()
+	BytesPoolPool.Put(pool)
 }
 
-// Pool represents bytes pool
-type Pool struct {
-	pools       [indexLength]*sync.Pool
+// GetBytes is a quick method for DefaultBytesPool.Get.
+func GetBytes(length int) []byte {
+	return DefaultBytesPool.Get(length)
+}
+
+// PutBytes is a quick method for DefaultBytesPool.Put.
+func PutBytes(bytes []byte) {
+	DefaultBytesPool.Put(bytes)
+}
+
+// SizedBytesPoolFactory creates the pool for the bytes that length is fixed.
+type SizedBytesPoolFactory func(length int) Pool
+
+// BytesPool represents bytes pool
+type BytesPool struct {
+	// SizedPoolFactory is a factory for producing SizedBytesPool instance.
+	// default is DefaultSizedBytesPoolFactory.
+	SizedPoolFactory SizedBytesPoolFactory
+
+	pools       [indexLength]Pool
 	capacities  [indexLength]int
 	newPoolMutx sync.Mutex
 }
 
-func (pool *Pool) getCapacity(idx int) int {
+func (pool *BytesPool) getCapacity(idx int) int {
 	if idx <= littleIndexUpper {
 		return int(math.Pow(2, float64(idx)))
 	} else if idx < indexLength {
@@ -54,7 +86,7 @@ func (pool *Pool) getCapacity(idx int) int {
 	panic(fmt.Sprintf("index must be smaller than %d", indexLength))
 }
 
-func (pool *Pool) getIndex(length int) int {
+func (pool *BytesPool) getIndex(length int) int {
 	if length <= littleCapacityUpper {
 		return int(math.Ceil(math.Log2(float64(length))))
 	} else if length <= largeCapacityUpper {
@@ -63,27 +95,29 @@ func (pool *Pool) getIndex(length int) int {
 	panic(fmt.Sprintf("length must be smaller or equal than %d", largeCapacityUpper))
 }
 
-func (pool *Pool) findIndex(capacity int) (int, bool) {
+func (pool *BytesPool) findIndex(capacity int) (int, bool) {
 	if capacity > largeCapacityUpper {
 		return 0, false
 	} else if capacity <= 0 {
 		return 0, false
 	} else if capacity <= littleCapacityUpper {
-		idx := math.Log2(float64(capacity))
-		if math.Mod(idx, 1) > 0 {
+		log2 := math.Log2(float64(capacity))
+		idx := int(log2)
+		if log2 != float64(idx) {
 			return 0, false
 		}
-		return int(idx), true
+		return idx, true
 	} else { // littleCapacityUpper < capacity <= largeCapacityUpper
-		idx := float64(capacity) / 1024
-		if math.Mod(idx, 1) > 1 {
+		log := float64(capacity) / 1024
+		idx := int(log)
+		if log != float64(idx) {
 			return 0, false
 		}
-		return int(math.Ceil(idx)) + littleIndexUpper - 1, true
+		return idx + littleIndexUpper - 1, true
 	}
 }
 
-func (pool *Pool) getPool(idx int) *sync.Pool {
+func (pool *BytesPool) getPool(idx int) Pool {
 	p := pool.pools[idx]
 	if p == nil {
 		pool.newPoolMutx.Lock()
@@ -92,11 +126,11 @@ func (pool *Pool) getPool(idx int) *sync.Pool {
 		p = pool.pools[idx]
 		if p == nil {
 			capacity := pool.getCapacity(idx)
-			p = &sync.Pool{
-				New: func() interface{} {
-					return make([]byte, 0, capacity)
-				},
+
+			if pool.SizedPoolFactory == nil {
+				pool.SizedPoolFactory = DefaultSizedBytesPoolFactory
 			}
+			p = pool.SizedPoolFactory(capacity)
 
 			pool.pools[idx] = p
 			pool.capacities[idx] = capacity
@@ -105,8 +139,14 @@ func (pool *Pool) getPool(idx int) *sync.Pool {
 	return p
 }
 
+func (pool *BytesPool) acquireBytes(length int) []byte {
+	idx := pool.getIndex(length)
+	p := pool.getPool(idx)
+	return p.Get().([]byte)
+}
+
 // Get acquire a slice with a len of length and a capacity of at least length.
-func (pool *Pool) Get(length int) []byte {
+func (pool *BytesPool) Get(length int) []byte {
 	var bytes []byte
 	if length > largeCapacityUpper {
 		bytes = make([]byte, 0, length)
@@ -115,16 +155,14 @@ func (pool *Pool) Get(length int) []byte {
 	} else if length < 0 {
 		panic("length must be greater than 0")
 	} else {
-		idx := pool.getIndex(length)
-		p := pool.getPool(idx)
-		bytes = p.Get().([]byte)
+		bytes = pool.acquireBytes(length)
 	}
 
 	return bytes[:length]
 }
 
 // Put reset and release a bytes slice.
-func (pool *Pool) Put(bytes []byte) {
+func (pool *BytesPool) Put(bytes []byte) {
 	capacity := cap(bytes)
 	idx, found := pool.findIndex(capacity)
 	if !found {
@@ -138,4 +176,8 @@ func (pool *Pool) Put(bytes []byte) {
 	p := pool.getPool(idx)
 	bytes = bytes[:0]
 	p.Put(bytes)
+}
+
+func (pool *BytesPool) Reset() {
+	pool.SizedPoolFactory = nil
 }

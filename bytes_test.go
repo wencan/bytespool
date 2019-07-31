@@ -2,13 +2,13 @@ package bytespool
 
 import (
 	"math/rand"
-	"runtime/debug"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 func TestSpecialMalloc(t *testing.T) {
-	pool := GetPool()
+	pool := GetBytesPool()
 	for _, length := range []int{0, 1, littleCapacityUpper, littleCapacityUpper + 1, largeCapacityUpper, largeCapacityUpper + 1, 1024 * 1024 * 1024} {
 		bytes := pool.Get(length)
 		if len(bytes) != length {
@@ -16,21 +16,14 @@ func TestSpecialMalloc(t *testing.T) {
 		}
 		pool.Put(bytes)
 	}
-	PutPool(pool)
+	PutBytesPool(pool)
 }
 
 func TestBatchMalloc(t *testing.T) {
 	rand.Seed(time.Now().Unix())
 
-	pool := GetPool()
+	pool := GetBytesPool()
 	length := 0
-
-	defer func() {
-		r := recover()
-		if r != nil {
-			t.Fatalf("panic at length = %d, recover: %v\n%s", length, r, string(debug.Stack()))
-		}
-	}()
 
 	for length < 1024*1025 {
 		bytes := pool.Get(length)
@@ -45,5 +38,59 @@ func TestBatchMalloc(t *testing.T) {
 			length += rand.Intn(1024) + 1024
 		}
 	}
-	PutPool(pool)
+	PutBytesPool(pool)
+}
+
+type samplePool struct {
+	bytess [][]byte
+
+	calloc func(size int) []byte
+
+	size int
+}
+
+func (p *samplePool) Get() interface{} {
+	if len(p.bytess) > 0 {
+		bytes := p.bytess[0]
+		p.bytess = p.bytess[1:]
+		return bytes
+	}
+	if p.calloc != nil {
+		return p.calloc(p.size)
+	}
+	return make([]byte, 0, p.size)
+}
+
+func (p *samplePool) Put(x interface{}) {
+	bytes := x.([]byte)
+	p.bytess = append(p.bytess, bytes)
+}
+
+func TestBytesReuse(t *testing.T) {
+	var counter uint64
+	var pool BytesPool
+	pool.SizedPoolFactory = func(size int) Pool {
+		return &samplePool{
+			calloc: func(size int) []byte {
+				atomic.AddUint64(&counter, 1)
+				return make([]byte, 0, size)
+			},
+			bytess: make([][]byte, 0),
+			size:   size,
+		}
+	}
+
+	rand.Seed(time.Now().Unix())
+	length := rand.Intn(littleCapacityUpper) + 1
+
+	bytes1 := pool.Get(length)
+	pool.Put(bytes1)
+
+	bytes2 := pool.Get(length)
+	pool.Put(bytes2)
+
+	if counter != 1 {
+		t.Fatalf("counter error, want: %d, have: %d", 1, counter)
+		return
+	}
 }

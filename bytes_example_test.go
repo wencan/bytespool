@@ -7,9 +7,9 @@ import (
 )
 
 func ExampleGet() {
-	bytes := bytespool.Get(100)
+	bytes := bytespool.GetBytes(100)
 	fmt.Printf("len: %d, cap: %d", len(bytes), cap(bytes))
-	bytespool.Put(bytes)
+	bytespool.PutBytes(bytes)
 
 	// Output:
 	// len: 100, cap: 128

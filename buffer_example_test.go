@@ -20,8 +20,8 @@ func ExampleBuffer() {
 	fmt.Printf("len: %d, cap: %d\n", buffer.Len(), buffer.Cap())
 
 	// read
-	buff := bytespool.Get(10)
-	defer bytespool.Put(buff)
+	buff := bytespool.GetBytes(10)
+	defer bytespool.PutBytes(buff)
 	nRead, err := buffer.Read(buff)
 	_ = err
 	buff = buff[:nRead]
@@ -29,7 +29,7 @@ func ExampleBuffer() {
 	fmt.Printf("data: %X", buff)
 
 	// Output:
-	// len: 4, cap: 4
-	// len: 10, cap: 16
+	// len: 4, cap: 64
+	// len: 10, cap: 64
 	// data: 00010203040506070809
 }

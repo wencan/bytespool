@@ -5,50 +5,55 @@ import (
 	"sync"
 )
 
-const (
-	minGrowLength = 64
-)
-
 var (
-	bufferPool = sync.Pool{
+	// DefaultBufferMinGrowLength is the default value of Buffer.MinGrowLength.
+	DefaultBufferMinGrowLength = 64
+
+	// DefaultBufferReadBuffLength is the default value of Buffer.ReadBuffLength.
+	DefaultBufferReadBuffLength = 512
+
+	// BufferPool is the pool of Buffer instance.
+	BufferPool Pool = &sync.Pool{
 		New: func() interface{} {
 			return new(Buffer)
 		},
 	}
-
-	defaultBytesPool = DefaultPool
 )
-
-// BytesPool acquire and release bytes.
-// Interface of bytes pool. default is DefaultPool.
-type BytesPool interface {
-	Get(size int) []byte
-	Put(bytes []byte)
-}
 
 // GetBuffer acquire a buffer at default bytes pool.
 func GetBuffer() *Buffer {
-	return bufferPool.Get().(*Buffer)
+	return BufferPool.Get().(*Buffer)
 }
 
 // PutBuffer reset and release buffer.
 func PutBuffer(buffer *Buffer) {
 	buffer.Reset()
-	bufferPool.Put(buffer)
+	BufferPool.Put(buffer)
+}
+
+// SizedBytesPool is a interface that represents a pool of sized bytes.
+type SizedBytesPool interface {
+	Get(length int) []byte
+	Put([]byte)
 }
 
 // Buffer get bytes from pool and put idle bytes to pool.
 type Buffer struct {
+	// BytesPool is a pool of bytes of buffer.
+	// default is DefaultBytesPool.
+	BytesPool SizedBytesPool
+
+	// MinGrowLength is a minimum length of the buffer growth.
+	// default is BufferDefaultMinGrowLength.
+	MinGrowLength int
+
+	// ReadBuffLength is a buff length of the Buffer.ReadFrom.
+	// default value is BufferDefaultReadBuffLength.
+	ReadBuffLength int
+
 	bytes []byte
 
 	readOffset int
-
-	pool BytesPool
-}
-
-// SetBytesPool change bytes pool.
-func (buffer *Buffer) SetBytesPool(pool BytesPool) {
-	buffer.pool = pool
 }
 
 // Bytes returns bytes of buffer.
@@ -101,8 +106,11 @@ func (buffer *Buffer) writeableLen() int {
 func (buffer *Buffer) ReadFrom(r io.Reader) (int64, error) {
 	var nRead int64
 	for {
-		if buffer.writeableLen() < minGrowLength {
-			buffer.grow(minGrowLength)
+		if buffer.ReadBuffLength == 0 {
+			buffer.ReadBuffLength = DefaultBufferReadBuffLength
+		}
+		if buffer.writeableLen() < buffer.ReadBuffLength {
+			buffer.grow(buffer.ReadBuffLength)
 		}
 
 		buff := buffer.bytes[len(buffer.bytes):cap(buffer.bytes)]
@@ -165,16 +173,23 @@ func (buffer *Buffer) WriteString(str string) (int, error) {
 }
 
 func (buffer *Buffer) grow(n int) {
-	if buffer.pool == nil {
-		buffer.pool = defaultBytesPool
+	if buffer.BytesPool == nil {
+		buffer.BytesPool = DefaultBytesPool
 	}
 
-	bytes := buffer.pool.Get(buffer.Len() - buffer.readOffset + n)
+	length := buffer.Len() - buffer.readOffset + n
+	if buffer.MinGrowLength == 0 {
+		buffer.MinGrowLength = DefaultBufferMinGrowLength
+	}
+	if length < buffer.MinGrowLength {
+		length = buffer.MinGrowLength
+	}
+	bytes := buffer.BytesPool.Get(length)
 
 	if buffer.bytes != nil {
 		nCopy := copy(bytes, buffer.bytes[buffer.readOffset:])
 		bytes = bytes[:nCopy]
-		buffer.pool.Put(buffer.bytes)
+		buffer.BytesPool.Put(buffer.bytes)
 	} else {
 		bytes = bytes[:0]
 	}
@@ -195,14 +210,13 @@ func (buffer *Buffer) Grow(n int) {
 // Reset release bytes and reset the buffer status.
 func (buffer *Buffer) Reset() {
 	if buffer.bytes != nil {
-		if buffer.pool == nil {
-			buffer.pool = defaultBytesPool
-		}
-
-		buffer.pool.Put(buffer.bytes)
+		buffer.BytesPool.Put(buffer.bytes)
 		buffer.bytes = nil
 	}
 
-	buffer.pool = nil
+	buffer.BytesPool = nil
 	buffer.readOffset = 0
+
+	buffer.MinGrowLength = 0
+	buffer.ReadBuffLength = 0
 }
