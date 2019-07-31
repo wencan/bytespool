@@ -7,7 +7,16 @@
 - reclaim the original byte slice when the buffer grows.
 
 ## benchmark
+### plan one
+```
+go test github.com/wencan/bytespool -bench=. -benchmem
+```
+```
+BenchmarkBufferWriteStrings-16        	100000000	        17.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBufferWriteRandomTop1K-16    	50000000	        25.1 ns/op	       0 B/op	       0 allocs/op
+```
 
+### plan two
 ```
  go test github.com/wencan/go-benchmark/... -bench=. -benchmem
 ```
