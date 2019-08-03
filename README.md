@@ -1,4 +1,5 @@
 # bytespool
+[![GoDoc](https://godoc.org/github.com/wencan/bytespool?status.svg)](https://godoc.org/github.com/wencan/bytespool)
 
 ## feature
 
