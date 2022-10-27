@@ -22,15 +22,10 @@ const (
 
 var (
 	// DefaultBytesPool is the default instance of BytesPool.
-	DefaultBytesPool = GetBytesPool()
+	DefaultBytesPool = &BytesPool{}
 
 	// EmptyBytes represents empty bytes
 	EmptyBytes = make([]byte, 0)
-
-	// BytesPoolPool is a pool for BytesPool instance.
-	BytesPoolPool Pool = &sync.Pool{
-		New: func() interface{} { return new(BytesPool) },
-	}
 
 	// DefaultSizedBytesPoolFactory is a default factory for producing SizedBytesPool instance.
 	DefaultSizedBytesPoolFactory = func(size int) Pool {
@@ -41,17 +36,6 @@ var (
 		}
 	}
 )
-
-// GetBytesPool acquire a bytes pool
-func GetBytesPool() *BytesPool {
-	return BytesPoolPool.Get().(*BytesPool)
-}
-
-// PutBytesPool reset and release a bytes pool
-func PutBytesPool(pool *BytesPool) {
-	pool.Reset()
-	BytesPoolPool.Put(pool)
-}
 
 // GetBytes is a quick method for DefaultBytesPool.Get.
 func GetBytes(length int) []byte {

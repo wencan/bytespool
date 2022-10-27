@@ -8,7 +8,7 @@ import (
 )
 
 func TestSpecialMalloc(t *testing.T) {
-	pool := GetBytesPool()
+	var pool BytesPool
 	for _, length := range []int{0, 1, littleCapacityUpper, littleCapacityUpper + 1, largeCapacityUpper, largeCapacityUpper + 1, 1024 * 1024 * 1024} {
 		bytes := pool.Get(length)
 		if len(bytes) != length {
@@ -16,13 +16,12 @@ func TestSpecialMalloc(t *testing.T) {
 		}
 		pool.Put(bytes)
 	}
-	PutBytesPool(pool)
 }
 
 func TestBatchMalloc(t *testing.T) {
 	rand.Seed(time.Now().Unix())
 
-	pool := GetBytesPool()
+	var pool BytesPool
 	length := 0
 
 	for length < 1024*1025 {
@@ -38,7 +37,6 @@ func TestBatchMalloc(t *testing.T) {
 			length += rand.Intn(1024) + 1024
 		}
 	}
-	PutBytesPool(pool)
 }
 
 type samplePool struct {
