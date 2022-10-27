@@ -6,7 +6,7 @@ import (
 	"github.com/wencan/bytespool"
 )
 
-func ExampleGet() {
+func ExampleGetBytes() {
 	bytes := bytespool.GetBytes(100)
 	fmt.Printf("len: %d, cap: %d", len(bytes), cap(bytes))
 	bytespool.PutBytes(bytes)
